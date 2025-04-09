@@ -1,0 +1,89 @@
+{
+    "name": "project-context-scanner",
+    "displayName": "Project Context Scanner",
+    "description": "Scans project files and generates context analysis in JSON format",
+    "version": "0.1.0",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "project-context-scanner.scan",
+                "title": "Scan Project Context"
+            },
+            {
+                "command": "project-context-scanner.toggle",
+                "title": "Toggle Auto Scanning"
+            }
+        ],
+        "configuration": {
+            "title": "Project Context Scanner",
+            "properties": {
+                "projectContextScanner.maxFileSize": {
+                    "type": "number",
+                    "default": 1000000,
+                    "description": "Maximum file size to scan in bytes (default: 1MB)"
+                },
+                "projectContextScanner.maxFiles": {
+                    "type": "number",
+                    "default": 1000,
+                    "description": "Maximum number of files to scan"
+                },
+                "projectContextScanner.ignorePatterns": {
+                    "type": "array",
+                    "default": [
+                        "node_modules/",
+                        ".git/",
+                        "dist/",
+                        "build/",
+                        ".cache/",
+                        "__pycache__/",
+                        "*.jpg",
+                        "*.jpeg",
+                        "*.png",
+                        "*.gif",
+                        "*.pdf",
+                        "*.zip",
+                        "*.tar",
+                        "*.gz",
+                        "*.exe",
+                        "*.dll",
+                        "*.so",
+                        "*.dylib",
+                        "*.class",
+                        "*.log"
+                    ],
+                    "description": "Patterns to ignore when scanning files"
+                },
+                "projectContextScanner.outputFile": {
+                    "type": "string",
+                    "default": "project-context.json",
+                    "description": "Name of the output file (default: project-context.json)"
+                },
+                "projectContextScanner.autoScan": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Automatically scan project on file changes"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "echo Compiled",
+        "lint": "echo Linted",
+        "watch": "echo Watching"
+    },
+    "devDependencies": {
+        "@types/node": "^14.0.0",
+        "@types/vscode": "^1.60.0"
+    }
+}

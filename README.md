@@ -1,113 +1,36 @@
 # Project Context Scanner
 
-A shell script to scan and analyze project context, generating a comprehensive JSON structure of your codebase. This tool helps you understand your project organization, dependencies, and structure without manual inspection.
+An extension for Visual Studio Code that scans your project files and generates a context analysis in JSON format.
 
 ## Features
 
-- 🔍 **Project Structure Analysis**: Scans your entire project to create a map of all files
-- 🚫 **Smart Filtering**: Automatically ignores common non-code directories and binary files
-- 🧩 **Dependency Detection**: Extracts imports and dependencies from common languages
-- 📊 **Code Structure Analysis**: Identifies classes, functions, and other structural elements
-- 📦 **Format-Friendly Output**: Generates clean JSON output for further processing
-- 💻 **Multi-Language Support**: Works with JavaScript, TypeScript, Python, Go, Java, and more
-- 🚀 **Performance Optimized**: Designed to handle large projects efficiently
-
-## Installation
-
-1. Clone this repository or download the script
-2. Make the script executable:
-   ```bash
-   chmod +x project-context-scanner.sh
-   ```
+- Automatically scans project files and generates a context analysis
+- Updates the analysis when files change
+- Configurable ignore patterns, file size limits, and more
+- Shows summary of file types, structures, and dependencies
 
 ## Usage
 
-Run the script in your project directory:
+1. Open a project folder in VS Code
+2. Run the command "Scan Project Context" from the command palette (Ctrl+Shift+P)
+3. A file named `project-context.json` will be created in your project root
+4. Enable auto-scanning by running "Toggle Auto Scanning" from the command palette
 
-```bash
-./project-context-scanner.sh
-```
+## Extension Settings
 
-Or specify a custom directory and output file:
+This extension contributes the following settings:
 
-```bash
-./project-context-scanner.sh -d /path/to/your/project -o output.json
-```
+* `projectContextScanner.maxFileSize`: Maximum file size to scan in bytes (default: 1MB)
+* `projectContextScanner.maxFiles`: Maximum number of files to scan (default: 1000)
+* `projectContextScanner.ignorePatterns`: Patterns to ignore when scanning files
+* `projectContextScanner.outputFile`: Name of the output file (default: project-context.json)
+* `projectContextScanner.autoScan`: Automatically scan project on file changes (default: false)
 
-### Options
+## Status Bar Indicator
 
-- `-d, --directory DIR`: Specify the project directory to scan (default: current directory)
-- `-o, --output FILE`: Specify the output JSON file (default: project-context.json)
-- `-h, --help`: Display help information
+The extension adds a status bar indicator:
+- "PCS: Off" - Auto-scanning is disabled
+- "PCS: On" - Auto-scanning is enabled
+- "PCS: Scanning..." - Currently scanning project
 
-## Output
-
-The script generates a JSON file with the following structure:
-
-```json
-{
-  "projectStructure": {
-    "files": [
-      {
-        "path": "src/main.js",
-        "type": "JavaScript/TypeScript",
-        "size": "1234",
-        "dependencies": [
-          "import React from 'react'",
-          "import { useState } from 'react'"
-        ],
-        "structure": [
-          "function App() {",
-          "export default App"
-        ]
-      }
-      // ...more files
-    ],
-    "summary": {
-      "fileCount": 42,
-      "scannedAt": "2025-04-05T12:34:56Z"
-    }
-  }
-}
-```
-
-## Supported Languages
-
-- JavaScript/TypeScript
-- Python
-- Java
-- Ruby
-- PHP
-- Go
-- Rust
-- C/C++
-- HTML
-- CSS/SCSS/SASS
-- JSON
-- Markdown
-- Shell scripts
-
-## Customization
-
-You can customize the script by modifying the configuration variables at the top:
-
-- `MAX_FILE_SIZE`: Maximum file size to analyze (default: 1MB)
-- `MAX_FILES`: Maximum number of files to scan (default: 1000)
-- `IGNORE_PATTERNS`: Directories and file patterns to ignore
-
-## Special Go Project Support
-
-The script automatically detects and optimizes scanning for Go projects by looking for `go.mod` or `go.sum` files, providing enhanced structure extraction for Go code.
-
-## Requirements
-
-- Bash shell
-- Optional: `jq` for pretty-printed JSON output
-
-## License
-
-This project is open-source and available under the MIT License.
-
-## Acknowledgements
-
-Inspired by Cline's context management approach to large codebases.
+Click on the indicator to toggle auto-scanning.

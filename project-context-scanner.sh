@@ -326,7 +326,7 @@ print_summary() {
 # Main execution
 main() {
   local project_dir="."
-  local output_file="project-context.json"
+  local output_file="project-project-context.json"
   
   # Parse command line arguments
   while [[ $# -gt 0 ]]; do
