@@ -22,6 +22,10 @@
             {
                 "command": "project-context-scanner.toggle",
                 "title": "Toggle Auto Scanning"
+            },
+            {
+                "command": "project-context-scanner.configureExcludes",
+                "title": "Configure Exclude Patterns"
             }
         ],
         "configuration": {
@@ -63,6 +67,21 @@
                     ],
                     "description": "Patterns to ignore when scanning files"
                 },
+                "projectContextScanner.excludePatterns": {
+                    "type": "array",
+                    "default": [],
+                    "description": "Additional patterns to exclude when scanning (supports glob patterns)"
+                },
+                "projectContextScanner.useGitignore": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Include patterns from .gitignore file when excluding files"
+                },
+                "projectContextScanner.useVSCodeExclude": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Include patterns from VSCode files.exclude setting when excluding files"
+                },
                 "projectContextScanner.outputFile": {
                     "type": "string",
                     "default": "project-context.json",
@@ -85,5 +104,8 @@
     "devDependencies": {
         "@types/node": "^14.0.0",
         "@types/vscode": "^1.60.0"
+    },
+    "dependencies": {
+        "micromatch": "^4.0.5"
     }
 }

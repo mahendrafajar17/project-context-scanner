@@ -8,6 +8,15 @@ const stat = promisify(fs.stat);
 const readdir = promisify(fs.readdir);
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
+let micromatch;
+
+// Try to require micromatch, but fallback to simpler matching if not available
+try {
+    micromatch = require('micromatch');
+} catch (err) {
+    console.log('Micromatch not available, using simple pattern matching');
+    micromatch = null;
+}
 
 // Map of file extensions to languages
 const FILE_TYPE_MAP = {
@@ -83,9 +92,11 @@ function activate(context) {
     // Register commands
     let scanCommand = vscode.commands.registerCommand('project-context-scanner.scan', scanProjectContext);
     let toggleCommand = vscode.commands.registerCommand('project-context-scanner.toggle', toggleAutoScan);
+    let configureExcludesCommand = vscode.commands.registerCommand('project-context-scanner.configureExcludes', configureExcludes);
 
     context.subscriptions.push(scanCommand);
     context.subscriptions.push(toggleCommand);
+    context.subscriptions.push(configureExcludesCommand);
 
     // Set up auto-scanning if enabled in settings
     const config = vscode.workspace.getConfiguration('projectContextScanner');
@@ -123,6 +134,13 @@ async function toggleAutoScan() {
         disableAutoScan();
         vscode.window.showInformationMessage('Project Context Scanner: Auto-scanning disabled');
     }
+}
+
+/**
+ * Open the settings UI focused on exclude patterns
+ */
+function configureExcludes() {
+    vscode.commands.executeCommand('workbench.action.openSettings', 'projectContextScanner.excludePatterns');
 }
 
 /**
@@ -230,7 +248,42 @@ async function analyzeProject(directory) {
     const config = vscode.workspace.getConfiguration('projectContextScanner');
     const maxFileSize = config.get('maxFileSize');
     const maxFiles = config.get('maxFiles');
-    const ignorePatterns = config.get('ignorePatterns');
+    const ignorePatterns = config.get('ignorePatterns') || [];
+    const excludePatterns = config.get('excludePatterns') || [];
+    const useGitignore = config.get('useGitignore');
+    const useVSCodeExclude = config.get('useVSCodeExclude');
+    
+    // Combine all exclude patterns
+    const allExcludePatterns = [...ignorePatterns, ...excludePatterns];
+    
+    // Add VSCode exclude patterns if enabled
+    if (useVSCodeExclude) {
+        const filesConfig = vscode.workspace.getConfiguration('files');
+        const vsCodeExcludes = filesConfig.get('exclude') || {};
+        for (const pattern in vsCodeExcludes) {
+            if (vsCodeExcludes[pattern]) {
+                allExcludePatterns.push(pattern);
+            }
+        }
+    }
+
+    // Read .gitignore if enabled
+    if (useGitignore) {
+        const gitignorePath = path.join(directory, '.gitignore');
+        try {
+            const gitignoreContent = await readFile(gitignorePath, 'utf8');
+            const gitignorePatterns = gitignoreContent
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line && !line.startsWith('#'));
+            
+            // Add gitignore patterns to all exclude patterns
+            allExcludePatterns.push(...gitignorePatterns);
+        } catch (err) {
+            // .gitignore file doesn't exist or can't be read
+            console.log('Could not read .gitignore file:', err.message);
+        }
+    }
 
     let fileCount = 0;
     const files = [];
@@ -238,6 +291,11 @@ async function analyzeProject(directory) {
     // Check if Go project
     const isGoProject = await isFileExists(path.join(directory, 'go.mod')) ||
         await isFileExists(path.join(directory, 'go.sum'));
+
+    // Check if Java project
+    const isJavaProject = await isFileExists(path.join(directory, 'pom.xml')) ||
+        await isFileExists(path.join(directory, 'build.gradle')) ||
+        await isFileExists(path.join(directory, 'build.gradle.kts'));
 
     // Function to recursively scan directory
     async function scanDirectory(dir, relativePath = '') {
@@ -252,7 +310,7 @@ async function analyzeProject(directory) {
             const relPath = path.join(relativePath, entry.name);
 
             // Skip if should ignore
-            if (shouldIgnore(relPath, ignorePatterns)) {
+            if (shouldIgnore(relPath, allExcludePatterns, isJavaProject)) {
                 continue;
             }
 
@@ -312,7 +370,8 @@ async function analyzeProject(directory) {
             files: files,
             summary: {
                 fileCount: fileCount,
-                scannedAt: new Date().toISOString()
+                scannedAt: new Date().toISOString(),
+                excludedPatterns: allExcludePatterns
             }
         }
     };
@@ -335,23 +394,72 @@ async function isFileExists(filePath) {
 /**
  * Check if a file should be ignored based on patterns
  * @param {string} filePath File path to check
- * @param {string[]} ignorePatterns Patterns to ignore
+ * @param {string[]} excludePatterns Patterns to exclude
+ * @param {boolean} isJavaProject Whether the current project is a Java project
  * @returns {boolean} True if file should be ignored
  */
-function shouldIgnore(filePath, ignorePatterns) {
-    for (const pattern of ignorePatterns) {
-        // Handle wildcards at the end of pattern
-        if (pattern.endsWith('*')) {
-            const basePattern = pattern.slice(0, -1);
-            if (filePath.includes(basePattern)) {
+function shouldIgnore(filePath, excludePatterns, isJavaProject) {
+    // Normalize path separators for cross-platform compatibility
+    const normalizedPath = filePath.replace(/\\/g, '/');
+    
+    // Always ignore .DS_Store files
+    if (normalizedPath.endsWith('.DS_Store') || normalizedPath.includes('/.DS_Store')) {
+        return true;
+    }
+
+    // Special case for Java projects - ignore target folder
+    if (isJavaProject && (normalizedPath.startsWith('target/') || normalizedPath === 'target' || normalizedPath.includes('/target/'))) {
+        return true;
+    }
+
+    // Test against all exclude patterns
+    for (const pattern of excludePatterns) {
+        if (!pattern) continue; // Skip empty patterns
+        
+        const trimmedPattern = pattern.trim();
+        
+        // Use micromatch for glob pattern matching if available
+        if (micromatch && micromatch.isMatch) {
+            try {
+                if (micromatch.isMatch(normalizedPath, trimmedPattern)) {
+                    return true;
+                }
+                continue;
+            } catch (err) {
+                // If micromatch fails, fall back to simple matching
+                console.log('Micromatch error, using simple pattern matching:', err.message);
+            }
+        }
+            
+        // Fallback pattern matching:
+        
+        // Simple wildcard at start (e.g., *.js)
+        if (trimmedPattern.startsWith('*') && normalizedPath.endsWith(trimmedPattern.substring(1))) {
+            return true;
+        }
+        
+        // Simple wildcard at end (e.g., node_modules*)
+        if (trimmedPattern.endsWith('*')) {
+            const basePattern = trimmedPattern.slice(0, -1);
+            if (normalizedPath.startsWith(basePattern) || normalizedPath.includes('/' + basePattern)) {
                 return true;
             }
-        } else if (pattern.endsWith('/')) {
-            // For directory patterns
-            if (filePath.includes(`/${pattern}`) || filePath.includes(pattern)) {
+        } 
+        // Directory patterns with trailing slash
+        else if (trimmedPattern.endsWith('/')) {
+            const dirPattern = trimmedPattern.slice(0, -1);
+            if (normalizedPath === dirPattern || 
+                normalizedPath.startsWith(`${dirPattern}/`) || 
+                normalizedPath.includes(`/${dirPattern}/`)) {
                 return true;
             }
-        } else if (filePath.includes(pattern)) {
+        }
+        // Exact matches
+        else if (normalizedPath === trimmedPattern) {
+            return true;
+        }
+        // Path includes
+        else if (normalizedPath.includes('/' + trimmedPattern) || normalizedPath.startsWith(trimmedPattern + '/')) {
             return true;
         }
     }
